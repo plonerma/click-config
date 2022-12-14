@@ -7,7 +7,7 @@ command line options.
 
 ## Example Usage
 
-```
+```python
 from typing import List
 
 from click_config import click_config_options, command, config_class, field
@@ -39,4 +39,11 @@ if __name__ == "__main__":
 
 This script can be called from the command line. A configuration file can be
 loaded via `--config <path>` and individual fields can be overwritten using
-cli options such as `--a 5`.
+command line options such as `--a 5`.
+
+
+## Installation
+
+In your environment, run:
+
+```pip install git+https://github.com/plonerma/click-config.git```
