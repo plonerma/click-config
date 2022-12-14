@@ -1,8 +1,6 @@
 from typing import List
 
-import click
-
-from click_config import click_config_options, config_class, field
+from click_config import click_config_options, command, config_class, field
 
 
 @config_class
@@ -14,10 +12,12 @@ class Config:
 
     a: int
     b: str = "test"
-    c: List[str] = field("-c", help="c_help_str", default=["z"])
+    c: List[str] = field(
+        "-c", help="c_help_str", default_factory=lambda: ["z"]
+    )
 
 
-@click.command()
+@command()
 @click_config_options(Config)
 # Alternativ (but mypy does not like it): @Config.click_options
 def run(config):
