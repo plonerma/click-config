@@ -1,0 +1,41 @@
+[project]
+name = "click_config"
+version = "0.0.1"
+authors = [
+  { name="Max Ploner", email="click_config@maxploner.de" },
+]
+description = "A small wrapper around dataclass to enable use as config file with click"
+readme = "README.md"
+requires-python = ">=3.6"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/plonerma/click-config"
+"Bug Tracker" = "https://github.com/plonerma/click-config/issues"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+flake8-max-line-length = 210
+addopts = "--flake8 --mypy --isort"
+
+[tool.black]
+line-length = 79
+
+[tool.mypy]
+ignore_missing_imports = true
+
+[tool.isort]
+profile = "black"
