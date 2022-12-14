@@ -1,13 +1,10 @@
+import json
 from typing import List
 
-import json
-
-
 import pytest
-
 from click.testing import CliRunner
 
-from click_config import config_class, command, field
+from click_config import click_config_options, command, config_class, field
 
 
 @pytest.fixture
@@ -18,13 +15,15 @@ def basic_func():
 
         :param a: a_help_str
         """
+
         a: int
         b: str = "test"
         c: List[str] = field(
-            "-c", help="c_help_str", default_factory=lambda: ["z"])
+            "-c", help="c_help_str", default_factory=lambda: ["z"]
+        )
 
     @command()
-    @Config.click_options
+    @click_config_options(Config)
     def func(config):
         print(json.dumps(config.to_dict()))
 
@@ -39,20 +38,17 @@ def test_help(basic_func):
 
     lines = str(result.output).split("\n")
 
-    assert any([
-        line.split() == "-c TEXT c_help_str".split()
-        for line in lines
-    ])
+    assert any(
+        [line.split() == "-c TEXT c_help_str".split() for line in lines]
+    )
 
-    assert any([
-        line.split()[:2] == "--a INTEGER".split()
-        for line in lines
-    ]), "Type of field 'a' was not inferred from the annotations."
+    assert any(
+        [line.split()[:2] == "--a INTEGER".split() for line in lines]
+    ), "Type of field 'a' was not inferred from the annotations."
 
-    assert any([
-        line.split() == "--a INTEGER a_help_str".split()
-        for line in lines
-    ]), "Help string of a was not inferred from the doc string."
+    assert any(
+        [line.split() == "--a INTEGER a_help_str".split() for line in lines]
+    ), "Help string of a was not inferred from the doc string."
 
     assert result.exit_code == 0
 
@@ -80,24 +76,26 @@ def test_required_fields(basic_func):
     assert result.exit_code != 0
 
 
-_test_conf_files = dict([
-    ("yaml", """
+_test_conf_files = {
+    # config using yaml format
+    "yaml": """
 a: 2
 c: [x, y]
-"""),
-
-    ("toml", """
+""",
+    # config using toml format
+    "toml": """
 a = 2
 c = [ "x", "y" ]
-"""),
-
-    ("json", """
+""",
+    # config using json format
+    "json": """
 {
     "a": 2,
     "c": ["x", "y"]
 }
-""")
-])
+""",
+}
+
 
 @pytest.mark.parametrize("extension", _test_conf_files.keys())
 def test_config_file(basic_func, tmp_path, extension):
@@ -109,7 +107,9 @@ def test_config_file(basic_func, tmp_path, extension):
         f.write(file_content)
 
     runner = CliRunner()
-    result = runner.invoke(basic_func, ["--a", "1", "--config", str(conf_file)])
+    result = runner.invoke(
+        basic_func, ["--a", "1", "--config", str(conf_file)]
+    )
 
     assert result.exit_code == 0
 

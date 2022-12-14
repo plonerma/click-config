@@ -32,10 +32,12 @@ flake8-max-line-length = 210
 addopts = "--flake8 --mypy --isort"
 
 [tool.black]
-line-length = 79
+line_length = 79
 
 [tool.mypy]
 ignore_missing_imports = true
+check_untyped_defs = true
 
 [tool.isort]
 profile = "black"
+line_length = 79

@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any, Callable, Dict
 
 
 def get_loader(extension):
@@ -6,11 +6,16 @@ def get_loader(extension):
     if extension not in ("toml", "yaml", "yml", "json"):
         raise RuntimeError(
             f"Unrecognized file format: '.{extension}' "
-            "(supported are .toml, .yaml, and .json).")
+            "(supported are .toml, .yaml, and .json)."
+        )
+
+    loader: Callable
 
     if extension == "toml":
         try:
-            from toml import load as loader
+            from toml import load as toml_loader
+
+            loader = toml_loader
         except ModuleNotFoundError as exc:
             raise RuntimeError(
                 f"Package toml is required to read .{extension} files."
@@ -18,14 +23,18 @@ def get_loader(extension):
 
     elif extension in ("yaml", "yl"):
         try:
-            from yaml import safe_load as loader
+            from yaml import safe_load as yaml_loader
+
+            loader = yaml_loader
         except ModuleNotFoundError as exc:
             raise RuntimeError(
                 f"Package pyyaml is required to read .{extension} files."
             ) from exc
     else:
         try:
-            from json import load as loader
+            from json import load as json_loader
+
+            loader = json_loader
         except ModuleNotFoundError as exc:
             raise RuntimeError(
                 f"Package json is required to read .{extension} files."
