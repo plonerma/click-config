@@ -1,8 +1,17 @@
 """Core functionality of click_config."""
 
 import dataclasses
+from dataclasses import MISSING
 from dataclasses import Field as DataclassesField
 from dataclasses import dataclass, fields
+
+try:
+    from dataclasses import KW_ONLY as _  # type: ignore # noqa: F401
+
+    _dataclasses_kw_required = True
+except ImportError:
+    _dataclasses_kw_required = False
+
 from functools import wraps
 from os import PathLike
 from typing import (
@@ -55,6 +64,9 @@ class Field(DataclassesField):
             key: kw.pop(key, default_value)
             for key, default_value in _dataclass_default_field_kws.items()
         }
+
+        if _dataclasses_kw_required:
+            dataclass_field_kw["kw_only"] = MISSING
 
         # since there are multiple ways of setting the value of a field,
         # the required option in the click option should not be set
