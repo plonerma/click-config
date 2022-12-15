@@ -1,7 +1,9 @@
 from dataclasses import dataclass
 from typing import List
 
-from click_config import click_config_options, command, field
+from click import command
+
+from click_config import click_config_options, field
 
 
 # use @config_class (imported from click_config) instead, to additionaly get

@@ -10,10 +10,12 @@ Values in the config file can be overwritten using command line options
 ## Example Usage
 
 ```python
+from dataclasses import dataclass
 from typing import List
 
-from click_config import click_config_options, command, field
+from click import command
 
+from click_config import click_config_options, field
 
 @dataclass
 class Config:
