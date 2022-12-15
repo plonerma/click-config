@@ -1,17 +1,18 @@
 [project]
-name = "click_config"
+name = "click-config"
 version = "0.0.1"
 authors = [
-  { name="Max Ploner", email="click_config@maxploner.de" },
-]
+    { name="Max Ploner", email="click-config@maxploner.de" },
+    ]
 description = "A small wrapper around dataclass to enable use as config file with click"
 readme = "README.md"
 requires-python = ">=3.6"
+license = "MIT"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
-]
+    ]
 
 [project.urls]
 "Homepage" = "https://github.com/plonerma/click-config"
