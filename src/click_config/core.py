@@ -1,7 +1,7 @@
 """Core functionality of click_config."""
 
 import dataclasses
-from dataclasses import Field, dataclass
+from dataclasses import MISSING, Field, dataclass
 from dataclasses import field as dataclasses_field
 from dataclasses import fields
 from functools import wraps
@@ -35,6 +35,14 @@ _dataclass_default_field_kws = {
     "hash": None,
     "compare": True,
 }
+
+
+class RequiredFieldMissing(RuntimeError):
+    def __init__(self, field_name):
+        text = f"Required field '{field_name}' was not set."
+        super().__init__(text)
+        self.field_name = field_name
+        self.message = text
 
 
 def get_param_decls(_field: Field) -> Tuple:
@@ -124,6 +132,21 @@ def field(*param_decls: str, **kw: Any):
     return dataclasses_field(**dataclass_field_kw)
 
 
+def check_required_fields(cls: Type, data: Mapping):
+    # if cls is dataclass, check if all required fields are set
+    try:
+        for _field in fields(cls):
+            if (
+                _field.default is MISSING
+                and _field.default_factory is MISSING
+                and _field.name not in data
+            ):
+                raise RequiredFieldMissing(_field.name)
+    except TypeError:
+        # not a dataclass, skip field checking
+        pass
+
+
 def from_file(cls, path: PathLike, overwrite: Optional[Mapping] = None):
     """Create config from json, toml, or yaml file.
 
@@ -133,6 +156,8 @@ def from_file(cls, path: PathLike, overwrite: Optional[Mapping] = None):
 
     if overwrite:
         data.update(overwrite)
+
+    check_required_fields(cls, data)
 
     return cls(**data)
 
@@ -245,12 +270,18 @@ def add_click_options(func: Callable, config_cls: Type, name: str) -> Callable:
         # get path to config file
         conf_path = kw.pop(name, None)
 
-        if conf_path is None:
-            # create config directly from cli options
-            config = config_cls(**cli_kw)
-        else:
-            # load config from file and overwrite values given via cli options
-            config = from_file(config_cls, conf_path, overwrite=cli_kw)
+        try:
+            if conf_path is None:
+                # check if all required fields were set
+                check_required_fields(config_cls, cli_kw)
+
+                # create config directly from cli options
+                config = config_cls(**cli_kw)
+            else:
+                # load config from file and overwrite values given via cli options
+                config = from_file(config_cls, conf_path, overwrite=cli_kw)
+        except RequiredFieldMissing as exc:
+            raise click.UsageError(exc.message)
 
         # add config object to the kw args passed to the decorated funcion
         kw[name] = config
