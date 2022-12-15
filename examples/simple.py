@@ -1,9 +1,12 @@
+from dataclasses import dataclass
 from typing import List
 
-from click_config import click_config_options, command, config_class, field
+from click_config import click_config_options, command, field
 
 
-@config_class
+# use @config_class (imported from click_config) instead, to additionaly get
+# method to_dict and classmethod from_file
+@dataclass
 class Config:
     """Some description.
 

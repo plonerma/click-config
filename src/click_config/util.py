@@ -1,3 +1,5 @@
+from os import PathLike
+from pathlib import Path
 from typing import Any, Callable, Dict
 
 
@@ -43,12 +45,12 @@ def get_loader(extension):
     return loader
 
 
-def read_config_file(path: str) -> Dict[str, Any]:
+def read_config_file(path: PathLike) -> Dict[str, Any]:
     """Read config file.
 
     Can be of type toml, yaml, or json.
     """
-    extension = path.split(".")[-1]
+    extension = Path(path).suffix[1:]
 
     loader = get_loader(extension)
 

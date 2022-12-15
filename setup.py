@@ -9,7 +9,7 @@ with open("requirements.txt", encoding="utf-8") as f:
 
 setup(
     name="click_config",
-    version="0.0.1",
+    version="0.0.2",
     description=(
         "Small wrapper around dataclass to enable use with click (as config)"
     ),

@@ -1,6 +1,6 @@
 from click import argument, command, option
 
-from .core import click_config_options, config_class, field
+from .core import ConfigClass, click_config_options, config_class, field
 
 __all__ = [
     "field",
@@ -9,4 +9,5 @@ __all__ = [
     "command",
     "option",
     "argument",
+    "ConfigClass",
 ]

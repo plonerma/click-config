@@ -1,14 +1,21 @@
 import json
+from dataclasses import dataclass
 from typing import List
 
 import pytest
 from click.testing import CliRunner
 
-from click_config import click_config_options, command, config_class, field
+from click_config import (
+    ConfigClass,
+    click_config_options,
+    command,
+    config_class,
+    field,
+)
 
 
 @pytest.fixture
-def basic_func():
+def sample_config_class_decorator():
     @config_class
     class Config:
         """Some description.
@@ -30,9 +37,65 @@ def basic_func():
     return func
 
 
-def test_help(basic_func):
+@pytest.fixture
+def sample_config_child_class():
+    @dataclass
+    class Config(ConfigClass):
+        """Some description.
+
+        :param a: a_help_str
+        """
+
+        a: int
+        b: str = "test"
+        c: List[str] = field(
+            "-c", help="c_help_str", default_factory=lambda: ["z"]
+        )
+
+    @command()
+    @click_config_options(Config)
+    def func(config):
+        print(json.dumps(config.to_dict()))
+
+    return func
+
+
+@pytest.fixture
+def sample_dataclass_config():
+    @dataclass
+    class Config:
+        """Some description.
+
+        :param a: a_help_str
+        """
+
+        a: int
+        b: str = "test"
+        c: List[str] = field(
+            "-c", help="c_help_str", default_factory=lambda: ["z"]
+        )
+
+    @command()
+    @click_config_options(Config)
+    def func(config):
+        print(json.dumps(ConfigClass.to_dict(config)))
+
+    return func
+
+
+config_class_types = [
+    "sample_config_class_decorator",
+    "sample_config_child_class",
+    "sample_dataclass_config",
+]
+
+
+@pytest.mark.parametrize("config_type", config_class_types)
+def test_help(config_type, request):
+    func = request.getfixturevalue(config_type)
+
     runner = CliRunner()
-    result = runner.invoke(basic_func, ["--help"])
+    result = runner.invoke(func, ["--help"])
 
     print(result.output)
 
@@ -53,9 +116,12 @@ def test_help(basic_func):
     assert result.exit_code == 0
 
 
-def test_basic_example(basic_func):
+@pytest.mark.parametrize("config_type", config_class_types)
+def test_basic_example(config_type, request):
+    func = request.getfixturevalue(config_type)
+
     runner = CliRunner()
-    result = runner.invoke(basic_func, ["--a", "1", "-c", "x", "-c", "y"])
+    result = runner.invoke(func, ["--a", "1", "-c", "x", "-c", "y"])
 
     assert result.exit_code == 0
 
@@ -68,9 +134,12 @@ def test_basic_example(basic_func):
     assert output["c"] == ["x", "y"]
 
 
-def test_required_fields(basic_func):
+@pytest.mark.parametrize("config_type", config_class_types)
+def test_required_fields(config_type, request):
+    func = request.getfixturevalue(config_type)
+
     runner = CliRunner()
-    result = runner.invoke(basic_func, ["--b", "value"])
+    result = runner.invoke(func, ["--b", "value"])
 
     print(result.output)
     assert result.exit_code != 0
@@ -98,7 +167,10 @@ c = [ "x", "y" ]
 
 
 @pytest.mark.parametrize("extension", _test_conf_files.keys())
-def test_config_file(basic_func, tmp_path, extension):
+@pytest.mark.parametrize("config_type", config_class_types)
+def test_config_file(config_type, request, tmp_path, extension):
+    func = request.getfixturevalue(config_type)
+
     file_content = _test_conf_files[extension]
 
     conf_file = tmp_path / f"config.{extension}"
@@ -107,9 +179,7 @@ def test_config_file(basic_func, tmp_path, extension):
         f.write(file_content)
 
     runner = CliRunner()
-    result = runner.invoke(
-        basic_func, ["--a", "1", "--config", str(conf_file)]
-    )
+    result = runner.invoke(func, ["--a", "1", "--config", str(conf_file)])
 
     assert result.exit_code == 0
 

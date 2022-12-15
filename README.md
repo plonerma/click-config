@@ -1,8 +1,10 @@
 # Click-Config
 
-Click-config offers a small wrapper around `dataclass` to enable the population
-of a config class with values from a config file (yaml, toml, or json; the type
-is derived from the file extension) and command line options.
+Click-config enables the use of dataclasses as config objects which can be read
+from configurations files (yaml, toml, or json; the type is derived from the
+file extension).
+Values in the config file can be overwritten using command line options
+(click-config integrates dataclasses with [click](https://click.palletsprojects.com/en/8.1.x/)).
 
 
 ## Example Usage
@@ -10,10 +12,10 @@ is derived from the file extension) and command line options.
 ```python
 from typing import List
 
-from click_config import click_config_options, command, config_class, field
+from click_config import click_config_options, command, field
 
 
-@config_class
+@dataclass
 class Config:
     """Some description.
 
@@ -53,9 +55,17 @@ Options:
   --help         Show this message and exit.
 ```
 
-The resulting config object has all the features of a `dataclass` and additionally
-methods for loading values from a file (`from_file`) and a returning the values
-as a `dict` (`to_dict`).
+If there is no help argument in a field description (using
+`field(help=<help string>)`), *click-config* tries to find a param description
+based on the docstring of the dataclass.
+Currently ReST, Google, Numpydoc-style and Epydoc docstrings are supported
+(using the [docstring-parser package](https://github.com/rr-/docstring_parser)).
+
+
+The resulting config object has all the features of a `dataclass` and, if
+the `@config_class` decorator or `ConfigClass` base class have been used,
+additionally methods for loading values from a file (`from_file`) and a
+returning the values as a `dict` (`to_dict`).
 
 The name of the argument (in the decorated CLI function; here `config`) can be
 changed using the `name` argument of `click_config_options`.

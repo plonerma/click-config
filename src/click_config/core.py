@@ -1,26 +1,18 @@
 """Core functionality of click_config."""
 
 import dataclasses
-from dataclasses import MISSING
-from dataclasses import Field as DataclassesField
-from dataclasses import dataclass, fields
-
-try:
-    from dataclasses import KW_ONLY as _  # type: ignore # noqa: F401
-
-    _dataclasses_kw_required = True
-except ImportError:
-    _dataclasses_kw_required = False
-
+from dataclasses import Field, dataclass
+from dataclasses import field as dataclasses_field
+from dataclasses import fields
 from functools import wraps
 from os import PathLike
 from typing import (
     Any,
     Callable,
+    Dict,
     Literal,
     Mapping,
     Optional,
-    Protocol,
     Tuple,
     Type,
     TypeVar,
@@ -45,97 +37,63 @@ _dataclass_default_field_kws = {
 }
 
 
-class Field(DataclassesField):
-    """Represents a field in a configuration class.
+def get_param_decls(_field: Field) -> Tuple:
+    """Return complete `param_decls` for click option."""
+    partial_param_decls = _field.metadata.get("partial_param_decls", ())
 
-    This class is derived from `dataclasses.Field` and is essentially a
-    (mostly) read-only description of a config field. It is used to create
-    click options for creating a cli.
-    """
+    if len(partial_param_decls) == 0:
+        # if no cli option was given, construct from identifier
+        partial_param_decls = (f"--{_field.name}",)
 
-    def __init__(self, *partial_param_decls, **kw):
-        """Create a new field representation.
+    return partial_param_decls + (_field.name,)
 
-        Accepts the same kw arguments as `dataclasses.Field`, but additionally
-        accepts param_decls and kw args used for the click option.
-        """
-        # get keyword args which belong to the dataclass field
-        dataclass_field_kw = {
-            key: kw.pop(key, default_value)
-            for key, default_value in _dataclass_default_field_kws.items()
-        }
 
-        if _dataclasses_kw_required:
-            dataclass_field_kw["kw_only"] = MISSING
+def get_attrs(_field: Field) -> Dict[str, Any]:
+    """Generate attributes used for creating click options."""
 
-        # since there are multiple ways of setting the value of a field,
-        # the required option in the click option should not be set
-        assert (
-            "required" not in kw
-        ), "Do not specify required (instead just do no set a default value)."
+    multiple = False
+    click_type: Any = None
 
-        dataclass_field_kw["metadata"] = {
-            "attrs": kw,  # these will be passed to a click option
-            "partial_param_decls": partial_param_decls,
-        }
+    # annotation of the field, retrieved by dataclass
+    annotation = _field.type
 
-        super().__init__(**dataclass_field_kw)
+    # generic base type (such as list, Literal)
+    origin = get_origin(annotation)
 
-    @property
-    def param_decls(self) -> Tuple:
-        """Return complete `param_decls` for click option."""
-        partial_param_decls = self.metadata["partial_param_decls"]
-
-        if len(partial_param_decls) == 0:
-            # if no cli option was given, construct from identifier
-            partial_param_decls = (f"--{self.name}",)
-
-        return partial_param_decls + (self.name,)
-
-    @property
-    def attrs(self):
-        """Attributes used for creating click options."""
-        return {**self.metadata["attrs"], "default": None}
-
-    def sync_type(self):
-        """Assign converted (click compatible) annotation to this field."""
-        multiple = False
-        click_type: Any = None
-
-        # annotation of the field, retrieved by dataclass
-        annotation = self.type
-
-        # generic base type (such as list, Literal)
-        origin = get_origin(annotation)
-
-        if origin is not None:
-            if origin is Literal:
-                click_type = click.Choice(get_args(annotation))
-            elif origin is list:
-                multiple = True
-                args = get_args(annotation)
-
-                if len(args) == 1:
-                    click_type = args[0]
-
-        elif issubclass(annotation, list):
+    if origin is not None:
+        if origin is Literal:
+            click_type = click.Choice(get_args(annotation))
+        elif origin is list:
             multiple = True
+            args = get_args(annotation)
 
-        else:
-            click_type = annotation
+            if len(args) == 1:
+                click_type = args[0]
 
-        if multiple:
-            # test if multiple was explicitly set to false
-            assert self.metadata["attrs"].get("multiple", True), (
-                f"Annotation '{annotation}' is not compatible with the"
-                "provided field (as multiple is set to False)."
-            )
+    elif issubclass(annotation, list):
+        multiple = True
 
-            self.metadata["attrs"]["multiple"] = True
+    else:
+        click_type = annotation
 
-        if "type" not in self.metadata["attrs"] and click_type is not None:
-            # type has not been set explicitly
-            self.metadata["attrs"]["type"] = click_type
+    attrs = dict(_field.metadata.get("attrs", {}))
+
+    if multiple:
+        # test if multiple was explicitly set to false
+        assert attrs.get("multiple", True), (
+            f"Annotation '{annotation}' is not compatible with the"
+            "provided field (as multiple is set to False)."
+        )
+
+        attrs["multiple"] = True
+
+    if "type" not in attrs and click_type is not None:
+        # type has not been set explicitly
+        attrs["type"] = click_type
+
+    attrs["default"] = None  # defaults are handled by dataclass
+
+    return attrs
 
 
 def field(*param_decls: str, **kw: Any):
@@ -145,15 +103,54 @@ def field(*param_decls: str, **kw: Any):
     """
     if "default" in kw and "default_factory" in kw:
         raise ValueError("cannot specify both default and default_factory")
-    return Field(*param_decls, **kw)
+
+    # since there are multiple ways of setting the value of a field,
+    # the required option in the click option should not be set
+    assert (
+        "required" not in kw
+    ), "Do not specify required (instead just do no set a default value)."
+
+    # get keyword args which belong to the dataclass field
+    dataclass_field_kw = {
+        key: kw.pop(key, default_value)
+        for key, default_value in _dataclass_default_field_kws.items()
+    }
+
+    dataclass_field_kw["metadata"] = {
+        "attrs": kw,  # these will be passed to a click option
+        "partial_param_decls": param_decls,
+    }
+
+    return dataclasses_field(**dataclass_field_kw)
 
 
-class ConfigClass(Protocol):
+def from_file(cls, path: PathLike, overwrite: Optional[Mapping] = None):
+    """Create config from json, toml, or yaml file.
+
+    :param dict overrides: Overwrite specified fields.
+    """
+    data = read_config_file(path)
+
+    if overwrite:
+        data.update(overwrite)
+
+    return cls(**data)
+
+
+class ConfigClass:
     def to_dict(self) -> dict:
-        ...
+        """Represent the fields and values of configuration as a dict."""
+        return {
+            _field.name: getattr(self, _field.name) for _field in fields(self)
+        }
 
-    def from_file(self, path: PathLike, overwrite: Optional[Mapping] = None):
-        ...
+    @classmethod
+    def from_file(cls, path: PathLike, overwrite: Optional[Mapping] = None):
+        """Create config from json, toml, or yaml file.
+
+        :param dict overrides: Overwrite specified fields.
+        """
+        return from_file(cls, path, overwrite=overwrite)
 
 
 T = TypeVar("T", bound=Type)
@@ -162,65 +159,20 @@ T = TypeVar("T", bound=Type)
 def config_class(
     cls: Optional[T] = None, /, **kw
 ) -> Union[Callable[..., T], T]:
-    """Generate special methods for config class."""
+    """Wrapper around `dataclasses.dataclass`.
+
+    Adds method `to_dict` and classmethdo `from_file`.
+    """
 
     def make_config_class(cls: T) -> T:
         # make dataclass out of existing class
-
-        # drop in our own field class (a bit hacky, but works)
-        old_field = dataclasses.field
-        dataclasses.field = field
-
         cls = cast(T, dataclass(order=False, **kw)(cls))
 
-        # reset old field typoe of dataclasses
-        dataclasses.field = old_field
-
-        # if click type exists, check compatiblity with annotation
-        # else set click type accordingly
-        for _field in fields(cls):
-            _field = cast(Field, _field)
-            _field.sync_type()
-
-        if cls.__doc__ is not None:
-            # parse doc text, to generate help text for fields
-            param_doc = {}
-
-            for param in parse_docstring(cls.__doc__).params:
-                param_doc[param.arg_name] = param.description
-
-            for _field in fields(cls):
-                if (
-                    "help" not in _field.metadata["attrs"]
-                    and _field.name in param_doc
-                ):
-                    _field.metadata["attrs"]["help"] = param_doc[_field.name]
-
         # add to_dict function
-        def to_dict(self):
-            """Represent the fields and values of configuration as a dict."""
-            return {
-                _field.name: getattr(self, _field.name)
-                for _field in fields(self)
-            }
+        cls.to_dict = ConfigClass.to_dict
 
-        cls.to_dict = to_dict
-
-        # add function to load configuration from file (and potentiall
-        # overwrite some of the fields)
-        def from_file(cls, path, overwrite=None):
-            """Create config from json, toml, or yaml file.
-
-            :param dict overrides: Overwrite specified fields.
-            """
-            data = read_config_file(path)
-
-            if overwrite:
-                data.update(overwrite)
-
-            return cls(**data)
-
-        cls.from_file = classmethod(from_file)
+        # add function to load configuration from file
+        cls.from_file = ConfigClass.from_file
 
         # add decorator function for adding config to click command
         cls.click_options = classmethod(click_config_options)
@@ -234,14 +186,32 @@ def config_class(
 
 
 def add_click_options(func: Callable, config_cls: Type, name: str) -> Callable:
-    """Add options to a click command based on this config."""
-    # add a click option for each of the fields
+    """Add options to a click command based on a dataclass.
+
+    :param Callable func: Function (cli command) to decorate.
+    :param Type config_cls: Configuration class. Must be a dataclass.
+    :param str name: Name of the argument the resulting config object is passed
+        as (as well as the resulting cli option).
+    :returns: Callable -- the decorated function.
+    :raises: TypeError
+    """
+    if config_cls.__doc__ is not None:
+        # parse doc text, to generate help text for fields
+        param_doc = {}
+
+        for param in parse_docstring(config_cls.__doc__).params:
+            param_doc[param.arg_name] = param.description
+
     for _field in fields(config_cls):
         assert isinstance(_field, Field)
 
-        attrs = _field.attrs
+        attrs = get_attrs(_field)
+        param_decls = get_param_decls(_field)
 
-        func = click.option(*_field.param_decls, **attrs)(func)
+        if "help" not in attrs and _field.name in param_doc:
+            attrs["help"] = param_doc[_field.name]
+
+        func = click.option(*param_decls, **attrs)(func)
 
     # add option for reading values from a file
     func = click.option(
@@ -280,7 +250,7 @@ def add_click_options(func: Callable, config_cls: Type, name: str) -> Callable:
             config = config_cls(**cli_kw)
         else:
             # load config from file and overwrite values given via cli options
-            config = config_cls.from_file(conf_path, overwrite=cli_kw)
+            config = from_file(config_cls, conf_path, overwrite=cli_kw)
 
         # add config object to the kw args passed to the decorated funcion
         kw[name] = config
