@@ -5,36 +5,7 @@ from typing import List
 import pytest
 from click.testing import CliRunner
 
-from click_config import (
-    ConfigClass,
-    click_config_options,
-    command,
-    config_class,
-    field,
-)
-
-
-@pytest.fixture
-def sample_config_class_decorator():
-    @config_class
-    class Config:
-        """Some description.
-
-        :param a: a_help_str
-        """
-
-        a: int
-        b: str = "test"
-        c: List[str] = field(
-            "-c", help="c_help_str", default_factory=lambda: ["z"]
-        )
-
-    @command()
-    @click_config_options(Config)
-    def func(config):
-        print(json.dumps(config.to_dict()))
-
-    return func
+from click_config import ConfigClass, click_config_options, command, field
 
 
 @pytest.fixture
@@ -84,7 +55,6 @@ def sample_dataclass_config():
 
 
 config_class_types = [
-    "sample_config_class_decorator",
     "sample_config_child_class",
     "sample_dataclass_config",
 ]

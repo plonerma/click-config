@@ -1,7 +1,7 @@
 """Core functionality of click_config."""
 
 import dataclasses
-from dataclasses import MISSING, Field, dataclass
+from dataclasses import MISSING, Field
 from dataclasses import field as dataclasses_field
 from dataclasses import fields
 from functools import wraps
@@ -15,9 +15,6 @@ from typing import (
     Optional,
     Tuple,
     Type,
-    TypeVar,
-    Union,
-    cast,
     get_args,
     get_origin,
 )
@@ -162,54 +159,6 @@ def from_file(cls, path: PathLike, overwrite: Optional[Mapping] = None):
     return cls(**data)
 
 
-class ConfigClass:
-    def to_dict(self) -> dict:
-        """Represent the fields and values of configuration as a dict."""
-        return {
-            _field.name: getattr(self, _field.name) for _field in fields(self)
-        }
-
-    @classmethod
-    def from_file(cls, path: PathLike, overwrite: Optional[Mapping] = None):
-        """Create config from json, toml, or yaml file.
-
-        :param dict overrides: Overwrite specified fields.
-        """
-        return from_file(cls, path, overwrite=overwrite)
-
-
-T = TypeVar("T", bound=Type)
-
-
-def config_class(
-    cls: Optional[T] = None, /, **kw
-) -> Union[Callable[..., T], T]:
-    """Wrapper around `dataclasses.dataclass`.
-
-    Adds method `to_dict` and classmethdo `from_file`.
-    """
-
-    def make_config_class(cls: T) -> T:
-        # make dataclass out of existing class
-        cls = cast(T, dataclass(order=False, **kw)(cls))
-
-        # add to_dict function
-        cls.to_dict = ConfigClass.to_dict
-
-        # add function to load configuration from file
-        cls.from_file = ConfigClass.from_file
-
-        # add decorator function for adding config to click command
-        cls.click_options = classmethod(click_config_options)
-
-        return cls
-
-    if cls is None:
-        return make_config_class
-
-    return make_config_class(cls)
-
-
 def add_click_options(func: Callable, config_cls: Type, name: str) -> Callable:
     """Add options to a click command based on a dataclass.
 
@@ -306,3 +255,16 @@ def click_config_options(
     if func is None:
         return _process_func
     return _process_func(func)
+
+
+class ConfigClass:
+    """Configuration base class which provides helper functions."""
+
+    def to_dict(self) -> dict:
+        """Represent the fields and values of configuration as a dict."""
+        return {
+            _field.name: getattr(self, _field.name) for _field in fields(self)
+        }
+
+    from_file = classmethod(from_file)
+    click_options = classmethod(click_config_options)

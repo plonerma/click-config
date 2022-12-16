@@ -14,8 +14,8 @@ from click import command
 from click_config import click_config_options, field
 
 
-# use @config_class (imported from click_config) instead, to additionaly get
-# method to_dict and classmethod from_file
+# use ConfigClass (imported from click_config) as a base class to get
+# additional helper functions
 @dataclass
 class Config:
     """Some description.
