@@ -1,6 +1,5 @@
 """Core functionality of click_config."""
 
-import dataclasses
 from dataclasses import MISSING, Field
 from dataclasses import field as dataclasses_field
 from dataclasses import fields
@@ -24,13 +23,15 @@ from docstring_parser import parse as parse_docstring
 
 from .util import read_config_file
 
-_dataclass_default_field_kws = {
-    "default": dataclasses.MISSING,
-    "default_factory": dataclasses.MISSING,
-    "init": True,
-    "repr": True,
-    "hash": None,
-    "compare": True,
+_dataclass_field_kw_names = {
+    "default",
+    "default_factory",
+    "init",
+    "repr",
+    "hash",
+    "compare",
+    "metadata",
+    "kw_only",
 }
 
 
@@ -117,8 +118,7 @@ def field(*param_decls: str, **kw: Any):
 
     # get keyword args which belong to the dataclass field
     dataclass_field_kw = {
-        key: kw.pop(key, default_value)
-        for key, default_value in _dataclass_default_field_kws.items()
+        key: kw.pop(key) for key in _dataclass_field_kw_names if key in kw
     }
 
     dataclass_field_kw["metadata"] = {
