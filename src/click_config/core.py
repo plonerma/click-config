@@ -21,7 +21,7 @@ from typing import (
 import click
 from docstring_parser import parse as parse_docstring
 
-from .util import read_config_file
+from .util import read_config_file, write_config_file
 
 _dataclass_field_kw_names = {
     "default",
@@ -265,6 +265,11 @@ class ConfigClass:
         return {
             _field.name: getattr(self, _field.name) for _field in fields(self)
         }
+
+    def to_file(self, path: PathLike):
+        """Write config to json, toml, or yaml file."""
+        data = self.to_dict()
+        write_config_file(path, data)
 
     from_file = classmethod(from_file)
     click_options = classmethod(click_config_options)
