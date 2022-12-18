@@ -28,9 +28,11 @@ tests = [
   'toml',
   'flake8<5.0.0',
   'flake8-black',
+]
+
+dev = [
   'types-PyYAML',
   'types-toml',
-
 ]
 
 [project.urls]
