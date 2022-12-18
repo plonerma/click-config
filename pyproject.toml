@@ -13,6 +13,25 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     ]
+dependencies=[
+  'click',
+  'docstring_parser',
+]
+
+[project.optional-dependencies]
+tests = [
+  'pytest',
+  'pytest-mypy',
+  'pytest-isort',
+  'pytest-flake8',
+  'pyyaml',
+  'toml',
+  'flake8<5.0.0',
+  'flake8-black',
+  'types-PyYAML',
+  'types-toml',
+
+]
 
 [project.urls]
 "Homepage" = "https://github.com/plonerma/click-config"
