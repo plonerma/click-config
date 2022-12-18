@@ -28,6 +28,8 @@ tests = [
   'toml',
   'flake8<5.0.0',
   'flake8-black',
+  'types-PyYAML',
+  'types-toml',
 ]
 
 dev = [
