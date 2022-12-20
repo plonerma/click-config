@@ -14,6 +14,7 @@ from typing import (
     Optional,
     Tuple,
     Type,
+    Union,
     get_args,
     get_origin,
 )
@@ -74,6 +75,13 @@ def get_attrs(_field: Field) -> Dict[str, Any]:
             args = get_args(annotation)
 
             if len(args) == 1:
+                click_type = args[0]
+        elif origin is Union:
+            # potentially an optional field
+            args = get_args(annotation)
+            if str in args:
+                click_type = str
+            elif len(args) == 2:
                 click_type = args[0]
 
     elif issubclass(annotation, list):
