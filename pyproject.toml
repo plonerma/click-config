@@ -6,7 +6,7 @@ authors = [
     ]
 description = "A small wrapper around dataclass to enable use as config file with click"
 readme = "README.md"
-requires-python = ">=3.6"
+requires-python = ">=3.8"
 license = {text = "MIT"}
 classifiers = [
     "Programming Language :: Python :: 3",
