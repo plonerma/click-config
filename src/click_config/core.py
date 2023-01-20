@@ -1,9 +1,11 @@
 """Core functionality of click_config."""
 
+import logging
 from dataclasses import MISSING, Field
 from dataclasses import field as dataclasses_field
 from dataclasses import fields
 from functools import wraps
+from itertools import product
 from os import PathLike
 from typing import (
     Any,
@@ -152,6 +154,22 @@ def check_required_fields(cls: Type, data: Mapping):
         pass
 
 
+def from_dict(cls, data: Mapping, overwrite: Optional[Mapping] = None):
+    """Create config from mapping.
+
+    :param dict overrides: Overwrite specified fields.
+    """
+
+    fields = {**data}
+
+    if overwrite:
+        fields.update(overwrite)
+
+    check_required_fields(cls, fields)
+
+    return cls(**fields)
+
+
 def from_file(cls, path: PathLike, overwrite: Optional[Mapping] = None):
     """Create config from json, toml, or yaml file.
 
@@ -159,12 +177,7 @@ def from_file(cls, path: PathLike, overwrite: Optional[Mapping] = None):
     """
     data = read_config_file(path)
 
-    if overwrite:
-        data.update(overwrite)
-
-    check_required_fields(cls, data)
-
-    return cls(**data)
+    return from_dict(cls, data, overwrite=overwrite)
 
 
 def add_click_options(func: Callable, config_cls: Type, name: str) -> Callable:
@@ -227,23 +240,49 @@ def add_click_options(func: Callable, config_cls: Type, name: str) -> Callable:
         # get path to config file
         conf_path = kw.pop(name, None)
 
+        configurations = []
+
         try:
             if conf_path is None:
                 # check if all required fields were set
                 check_required_fields(config_cls, cli_kw)
 
                 # create config directly from cli options
-                config = config_cls(**cli_kw)
+                configurations.append(config_cls(**cli_kw))
             else:
                 # load config from file and overwrite values given via cli options
-                config = from_file(config_cls, conf_path, overwrite=cli_kw)
+                data = read_config_file(conf_path)
+
+                if "__series__" in data:
+                    series = data.pop("__series__")
+                    keys = series.keys()
+
+                    for experiment in product(*series.values()):
+                        exp_data = dict(zip(keys, experiment))
+
+                        configurations.append(
+                            from_dict(
+                                config_cls,
+                                {**data, **exp_data},
+                                overwrite=cli_kw,
+                            )
+                        )
+
+                else:
+                    configurations.append(
+                        from_dict(config_cls, data, overwrite=cli_kw)
+                    )
         except RequiredFieldMissing as exc:
             raise click.UsageError(exc.message)
 
-        # add config object to the kw args passed to the decorated funcion
-        kw[name] = config
+        for i, config in enumerate(configurations):
+            if len(configurations) > 1:
+                logging.info("__series__ run #%s/%s", i, len(configurations))
 
-        return func(**kw)
+            # add config object to the kw args passed to the decorated funcion
+            func_kw = dict(kw)
+            func_kw[name] = config
+            func(**func_kw)
 
     return wrapped_func
 
@@ -279,5 +318,6 @@ class ConfigClass:
         data = self.to_dict()
         write_config_file(path, data)
 
+    from_dict = classmethod(from_dict)
     from_file = classmethod(from_file)
     click_options = classmethod(click_config_options)
